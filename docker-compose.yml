@@ -1,3 +1,6 @@
+# ============================================
+# BOT-SONORA: FRONTEND + CHAT (Coolify)
+# ============================================
 services:
   frontend:
     build:
@@ -10,10 +13,10 @@ services:
         - NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=${NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}
         - NEXT_PUBLIC_TUGUIA_URL=${NEXT_PUBLIC_TUGUIA_URL}
         - NEXT_PUBLIC_TUGUIA_ANON_KEY=${NEXT_PUBLIC_TUGUIA_ANON_KEY}
-        # Voice: acceso DIRECTO por IP:PORT (sin proxy)
+        # Voice: URL del servidor de voz (repo separado)
         - NEXT_PUBLIC_PIPECAT_URL=${NEXT_PUBLIC_PIPECAT_URL}
-        # Chat: acceso por Traefik
-        - PIPECAT_CHAT_URL=http://backend-chat:7861/api/chat
+        # Chat: interno en este compose
+        - PIPECAT_CHAT_URL=http://backend:7861/api/chat
     expose:
       - "3000"
     environment:
@@ -24,7 +27,7 @@ services:
       - NEXT_PUBLIC_TUGUIA_URL=${NEXT_PUBLIC_TUGUIA_URL}
       - NEXT_PUBLIC_TUGUIA_ANON_KEY=${NEXT_PUBLIC_TUGUIA_ANON_KEY}
       - NEXT_PUBLIC_PIPECAT_URL=${NEXT_PUBLIC_PIPECAT_URL}
-      - PIPECAT_CHAT_URL=http://backend-chat:7861/api/chat
+      - PIPECAT_CHAT_URL=http://backend:7861/api/chat
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     labels:
       - "traefik.enable=true"
@@ -34,31 +37,11 @@ services:
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     depends_on:
-      - backend-voice
-      - backend-chat
+      - backend
     restart: unless-stopped
 
-  # ============================================
-  # BACKEND VOICE - Acceso DIRECTO por IP:PORT
-  # No pasa por Traefik, expone puerto directamente
-  # ============================================
-  backend-voice:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    # Expone puerto 7860 directamente al host (sin Traefik)
-    ports:
-      - "7860:7860"
-    env_file:
-      - .env
-    # Solo inicia el servidor de voz
-    command: [ "uv", "run", "python", "bot.py", "--host", "0.0.0.0" ]
-    restart: unless-stopped
-
-  # ============================================
-  # BACKEND CHAT - Pasa por Traefik
-  # ============================================
-  backend-chat:
+  # Backend solo para CHAT (la API de texto)
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -66,7 +49,7 @@ services:
       - "7861"
     env_file:
       - .env
-    # Solo inicia el servidor de chat
+    # Solo inicia el servidor de chat (NO voice)
     command: [ "uv", "run", "python", "-m", "app.api.server" ]
     labels:
       - "traefik.enable=true"

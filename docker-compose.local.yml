@@ -1,3 +1,6 @@
+# ============================================
+# BOT-SONORA LOCAL: FRONTEND + CHAT
+# ============================================
 services:
   frontend:
     build:
@@ -10,8 +13,9 @@ services:
         - NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=${NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}
         - NEXT_PUBLIC_TUGUIA_URL=${NEXT_PUBLIC_TUGUIA_URL}
         - NEXT_PUBLIC_TUGUIA_ANON_KEY=${NEXT_PUBLIC_TUGUIA_ANON_KEY}
-        - NEXT_PUBLIC_PIPECAT_URL=http://localhost:7860
-        - PIPECAT_CHAT_URL=http://backend-chat:7861/api/chat
+        # Voice: apunta al servidor de voz (puede ser local o remoto)
+        - NEXT_PUBLIC_PIPECAT_URL=${NEXT_PUBLIC_PIPECAT_URL:-http://localhost:7860}
+        - PIPECAT_CHAT_URL=http://backend:7861/api/chat
     ports:
       - "3000:3000"
     environment:
@@ -21,26 +25,14 @@ services:
       - NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=${NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}
       - NEXT_PUBLIC_TUGUIA_URL=${NEXT_PUBLIC_TUGUIA_URL}
       - NEXT_PUBLIC_TUGUIA_ANON_KEY=${NEXT_PUBLIC_TUGUIA_ANON_KEY}
-      - NEXT_PUBLIC_PIPECAT_URL=http://localhost:7860
-      - PIPECAT_CHAT_URL=http://backend-chat:7861/api/chat
+      - NEXT_PUBLIC_PIPECAT_URL=${NEXT_PUBLIC_PIPECAT_URL:-http://localhost:7860}
+      - PIPECAT_CHAT_URL=http://backend:7861/api/chat
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      - backend-voice
-      - backend-chat
+      - backend
     restart: unless-stopped
 
-  backend-voice:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "7860:7860"
-    env_file:
-      - .env
-    command: [ "uv", "run", "python", "bot.py", "--host", "0.0.0.0" ]
-    restart: unless-stopped
-
-  backend-chat:
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -50,3 +42,6 @@ services:
       - .env
     command: [ "uv", "run", "python", "-m", "app.api.server" ]
     restart: unless-stopped
+
+# NOTA: Para desarrollo local completo (con voz), también necesitas
+# correr el repo sonora-test en paralelo en puerto 7860

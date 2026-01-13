@@ -1,0 +1,15 @@
+# ============================================
+# SONORA-VOICE: Servidor de Voz WebRTC
+# Despliegue manual (sin Coolify)
+# ============================================
+services:
+  voice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Puerto expuesto DIRECTAMENTE (sin proxy)
+    ports:
+      - "7860:7860"
+    env_file:
+      - .env
+    restart: unless-stopped
