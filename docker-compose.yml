@@ -10,8 +10,10 @@ services:
         - NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=${NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}
         - NEXT_PUBLIC_TUGUIA_URL=${NEXT_PUBLIC_TUGUIA_URL}
         - NEXT_PUBLIC_TUGUIA_ANON_KEY=${NEXT_PUBLIC_TUGUIA_ANON_KEY}
-        - NEXT_PUBLIC_PIPECAT_URL=https://sonora-api.1411sas.com
-        - PIPECAT_CHAT_URL=http://localhost:7861/api/chat
+        # Voice: acceso DIRECTO por IP:PORT (sin proxy)
+        - NEXT_PUBLIC_PIPECAT_URL=${NEXT_PUBLIC_PIPECAT_URL}
+        # Chat: acceso por Traefik
+        - PIPECAT_CHAT_URL=http://backend-chat:7861/api/chat
     expose:
       - "3000"
     environment:
@@ -21,11 +23,9 @@ services:
       - NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY=${NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}
       - NEXT_PUBLIC_TUGUIA_URL=${NEXT_PUBLIC_TUGUIA_URL}
       - NEXT_PUBLIC_TUGUIA_ANON_KEY=${NEXT_PUBLIC_TUGUIA_ANON_KEY}
-      - NEXT_PUBLIC_PIPECAT_URL=https://sonora-api.1411sas.com
-      - PIPECAT_CHAT_URL=http://localhost:7861/api/chat
+      - NEXT_PUBLIC_PIPECAT_URL=${NEXT_PUBLIC_PIPECAT_URL}
+      - PIPECAT_CHAT_URL=http://backend-chat:7861/api/chat
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`sonora.1411sas.com`)"
@@ -34,15 +34,45 @@ services:
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     depends_on:
-      - backend
+      - backend-voice
+      - backend-chat
     restart: unless-stopped
 
-  backend:
+  # ============================================
+  # BACKEND VOICE - Acceso DIRECTO por IP:PORT
+  # No pasa por Traefik, expone puerto directamente
+  # ============================================
+  backend-voice:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    # Usar red del host para WebRTC (permite UDP sin NAT de Docker)
-    network_mode: "host"
+    # Expone puerto 7860 directamente al host (sin Traefik)
+    ports:
+      - "7860:7860"
     env_file:
       - .env
+    # Solo inicia el servidor de voz
+    command: [ "uv", "run", "python", "bot.py", "--host", "0.0.0.0" ]
+    restart: unless-stopped
+
+  # ============================================
+  # BACKEND CHAT - Pasa por Traefik
+  # ============================================
+  backend-chat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - "7861"
+    env_file:
+      - .env
+    # Solo inicia el servidor de chat
+    command: [ "uv", "run", "python", "-m", "app.api.server" ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chat.rule=Host(`sonora-chat.1411sas.com`)"
+      - "traefik.http.routers.chat.entrypoints=https"
+      - "traefik.http.routers.chat.tls=true"
+      - "traefik.http.routers.chat.tls.certresolver=letsencrypt"
+      - "traefik.http.services.chat.loadbalancer.server.port=7861"
     restart: unless-stopped
