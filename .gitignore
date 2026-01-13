@@ -35,3 +35,6 @@ build/
 # Logs
 *.log
 npm-debug.log*
+
+# Repo separado (no subir a bot-sonora)
+sonora-test/
